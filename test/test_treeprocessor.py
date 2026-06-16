@@ -9,5 +9,5 @@ def test_replace_marker():
     result = md.convert(test_input)
 
     assert result == '''<div class="reno-release-notes">
-<p text="Release notes will be generated here."></p>
+<p>Release notes will be generated here.</p>
 </div>'''

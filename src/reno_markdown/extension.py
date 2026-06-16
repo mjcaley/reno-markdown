@@ -1,8 +1,12 @@
 from dataclasses import dataclass
-from typing import Generator
+import typing
 import xml.etree.ElementTree as etree
 from markdown import Extension
 from markdown.treeprocessors import Treeprocessor
+
+if typing.TYPE_CHECKING:
+    from markdown import Markdown
+from typing import Generator
 
 
 @dataclass
@@ -21,7 +25,9 @@ def iter_parent_child(root: etree.Element) -> Generator[ElementLocation, None, N
 class RenoReleaseNotesTreeProcessor(Treeprocessor):
     def build_release_notes_element(self) -> etree.Element:
         div = etree.Element("div", {"class": "reno-release-notes"})
-        div.append(etree.Element("p", text="Release notes will be generated here."))
+        p = etree.Element("p")
+        p.text = "Release notes will be generated here."
+        div.append(p)
 
         return div
 
@@ -43,5 +49,5 @@ class RenoReleaseNotesExtension(Extension):
         }
         super().__init__(**kwargs)
 
-    def extendMarkdown(self, md):
-        md.treeprocessors.register(RenoReleaseNotesTreeProcessor(md), "reno_release_notes", 15)
+    def extendMarkdown(self, md: Markdown):
+        md.treeprocessors.register(RenoReleaseNotesTreeProcessor(), "reno_release_notes", 15)
