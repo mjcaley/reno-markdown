@@ -1,13 +1,21 @@
+from dataclasses import dataclass
 from typing import Generator
 import xml.etree.ElementTree as etree
 from markdown import Extension
 from markdown.treeprocessors import Treeprocessor
 
 
-def iter_parent_child(root: etree.Element) -> Generator[tuple[etree.Element, etree.Element], None, None]:
-    for child in root:
+@dataclass
+class ElementLocation:
+    node: etree.Element
+    parent: etree.Element
+    index: int
+
+
+def iter_parent_child(root: etree.Element) -> Generator[ElementLocation, None, None]:
+    for index, child in enumerate(root):
         yield from iter_parent_child(child)
-        yield root, child
+        yield ElementLocation(node=child, parent=root, index=index)
 
 
 class RenoReleaseNotesTreeProcessor(Treeprocessor):
@@ -18,17 +26,19 @@ class RenoReleaseNotesTreeProcessor(Treeprocessor):
         return div
 
     def run(self, root: etree.Element):
-        for parent, child in iter_parent_child(root):
-            if child.text and child.text.strip() == "[release-notes]":
-                new_el = self.build_release_notes_element()
+        for element in iter_parent_child(root):
+            if element.node.text and element.node.text.strip() == "[release-notes]":
+                reno_element = self.build_release_notes_element()
 
-                idx = list(parent).index(child)
-                parent.remove(child)
-                parent.insert(idx, new_el)
+                element.parent.remove(element.node)
+                element.parent.insert(element.index, reno_element)
 
         return None
 
 
 class RenoReleaseNotesExtension(Extension):
+    def __init__(self, title: str = "Release Notes"):
+        self.title = title
+
     def extendMarkdown(self, md):
         md.treeprocessors.register(RenoReleaseNotesTreeProcessor(md), "reno_release_notes", 15)
