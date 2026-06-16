@@ -1,0 +1,25 @@
+[project]
+name = "reno-markdown"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Michael Caley", email = "mjcaley@darkarctic.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "markdown>=3.10.2",
+    "reno>=4.1.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.21,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.0",
+]
+lint = [
+    "ruff>=0.15.17",
+]
