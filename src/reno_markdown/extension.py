@@ -37,8 +37,11 @@ class RenoReleaseNotesTreeProcessor(Treeprocessor):
 
 
 class RenoReleaseNotesExtension(Extension):
-    def __init__(self, title: str = "Release Notes"):
-        self.title = title
+    def __init__(self, **kwargs):
+        self.config = {
+            'title': ['Release Notes', 'Title for the release notes section']
+        }
+        super().__init__(**kwargs)
 
     def extendMarkdown(self, md):
         md.treeprocessors.register(RenoReleaseNotesTreeProcessor(md), "reno_release_notes", 15)
