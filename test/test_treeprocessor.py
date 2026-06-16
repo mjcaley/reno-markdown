@@ -1,5 +1,6 @@
 from markdown import Markdown
-from reno_markdown.extension import RenoReleaseNotesExtension
+from reno_markdown.extension import RenoReleaseNotesExtension, RenoReleaseNotesTreeProcessor
+
 
 def test_replace_marker():
     test_input = """[release-notes]"""
@@ -7,4 +8,6 @@ def test_replace_marker():
     md = Markdown(extensions=[RenoReleaseNotesExtension()])
     result = md.convert(test_input)
 
-    assert result == '<div class="reno-release-notes"></div>'
+    assert result == '''<div class="reno-release-notes">
+<p text="Release notes will be generated here."></p>
+</div>'''
