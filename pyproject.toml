@@ -23,3 +23,6 @@ dev = [
 lint = [
     "ruff>=0.15.17",
 ]
+
+[project.entry-points."markdown.extensions"]
+reno_release_notes = "reno_markdown.extension:RenoReleaseNotesExtension"
