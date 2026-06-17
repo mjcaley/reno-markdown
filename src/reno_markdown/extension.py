@@ -38,25 +38,60 @@ class RenoReleaseNotesTreeProcessor(Treeprocessor):
         super().__init__(md)
 
         self.title: str = config.get("title", "Release Notes")
-        self.repo_root = Path(config["repo_root"])
+        repo_root = config.get("repo_root") or "."
+        self.repo_root = Path(repo_root)
 
-    def get_release_notes(self) -> Generator[ReleaseNote, None, None]:
-        config = Config(str(self.repo_root))
-        with Loader(config) as loader:
-            for version in loader.versions:
-                for filename, sha in loader[version]:
-                    yield ReleaseNote(
-                        version=version,
-                        filename=filename,
-                        sha=sha,
-                        data=loader.parse_note_file(filename, sha),
-                    )
+    def _get_notes(self, loader: Loader, version: str) -> Generator[ReleaseNote, None, None]:
+        for filename, sha in loader[version]:
+            yield ReleaseNote(
+                version=version,
+                filename=Path(filename),
+                sha=sha,
+                data=loader.parse_note_file(filename, sha),
+            )
+
+    def _get_versions(self, loader: Loader) -> Generator[str, None, None]:
+        for version in loader.versions:
+            yield version
+
+    def _create_release_notes(self) -> dict[str, list[ReleaseNote]]:
+        release_notes = {}
+        with Loader(Config(str(self.repo_root))) as loader:
+            for version in self._get_versions(loader):
+                release_notes[version] = list(self._get_notes(loader, version))
+
+        return release_notes
+
+    def format_release_notes(self) -> etree.Element:
+        notes = self._create_release_notes()
+        self.md.reno_release_notes = notes
+
+        div = etree.Element("div", {"class": "reno-release-notes"})
+        h2 = etree.Element("h2")
+        h2.text = self.title
+        div.append(h2)
+
+        for version in notes.keys():
+            version_div = etree.Element("div", {"class": "reno-version"})
+            version_h3 = etree.Element("h3")
+            version_h3.text = version
+            version_div.append(version_h3)
+
+            for note in notes[version]:
+                note_div = etree.Element("div", {"class": "reno-note"})
+                note_p = etree.Element("p")
+                note_p.text = f"{note.data.get('bug', [''])[0]}"
+                note_div.append(note_p)
+                version_div.append(note_div)
+
+            div.append(version_div)
+
+        return div
 
     def build_release_notes_element(self) -> etree.Element:
         div = etree.Element("div", {"class": "reno-release-notes"})
-        p = etree.Element("p")
-        p.text = "Release notes will be generated here."
-        div.append(p)
+        notes = self.format_release_notes()
+        div.append(notes)
 
         return div
 
@@ -74,7 +109,7 @@ class RenoReleaseNotesTreeProcessor(Treeprocessor):
 class RenoReleaseNotesExtension(Extension):
     def __init__(self, **kwargs):
         self.config = {
-            "repo_root": [None, "Path to the root of the repository"],
+            "repo_root": [".", "Path to the root of the repository"],
             "title": ["Release Notes", "Title for the release notes section"],
         }
         super().__init__(**kwargs)
