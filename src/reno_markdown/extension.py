@@ -1,12 +1,15 @@
 from dataclasses import dataclass
+from pathlib import Path
 import typing
 import xml.etree.ElementTree as etree
 from markdown import Extension
 from markdown.treeprocessors import Treeprocessor
+from reno.config import Config
+from reno.loader import Loader
 
 if typing.TYPE_CHECKING:
     from markdown import Markdown
-from typing import Generator
+    from typing import Any, Generator
 
 
 @dataclass
@@ -16,6 +19,14 @@ class ElementLocation:
     index: int
 
 
+@dataclass
+class ReleaseNote:
+    version: str
+    filename: Path
+    sha: str
+    data: dict[str, Any]
+
+
 def iter_parent_child(root: etree.Element) -> Generator[ElementLocation, None, None]:
     for index, child in enumerate(root):
         yield from iter_parent_child(child)
@@ -23,6 +34,24 @@ def iter_parent_child(root: etree.Element) -> Generator[ElementLocation, None, N
 
 
 class RenoReleaseNotesTreeProcessor(Treeprocessor):
+    def __init__(self, md: Markdown, config: dict[str, Any]):
+        super().__init__(md)
+
+        self.title: str = config.get("title", "Release Notes")
+        self.repo_root = Path(config["repo_root"])
+
+    def get_release_notes(self) -> Generator[ReleaseNote, None, None]:
+        config = Config(str(self.repo_root))
+        with Loader(config) as loader:
+            for version in loader.versions:
+                for filename, sha in loader[version]:
+                    yield ReleaseNote(
+                        version=version,
+                        filename=filename,
+                        sha=sha,
+                        data=loader.parse_note_file(filename, sha),
+                    )
+
     def build_release_notes_element(self) -> etree.Element:
         div = etree.Element("div", {"class": "reno-release-notes"})
         p = etree.Element("p")
@@ -45,9 +74,14 @@ class RenoReleaseNotesTreeProcessor(Treeprocessor):
 class RenoReleaseNotesExtension(Extension):
     def __init__(self, **kwargs):
         self.config = {
-            'title': ['Release Notes', 'Title for the release notes section']
+            "repo_root": [None, "Path to the root of the repository"],
+            "title": ["Release Notes", "Title for the release notes section"],
         }
         super().__init__(**kwargs)
 
     def extendMarkdown(self, md: Markdown):
-        md.treeprocessors.register(RenoReleaseNotesTreeProcessor(), "reno_release_notes", 15)
+        md.treeprocessors.register(
+            RenoReleaseNotesTreeProcessor(md, self.getConfigs()),
+            "reno_release_notes",
+            15,
+        )
