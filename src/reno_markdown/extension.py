@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 import typing
 import xml.etree.ElementTree as etree
@@ -25,6 +26,33 @@ class ReleaseNote:
     filename: Path
     sha: str
     data: dict[str, Any]
+
+
+@dataclass
+class Note:
+    filename: str
+    sha: str
+    note: str
+
+
+@dataclass
+class Version:
+    sections: dict[str, list[Note]] = field(default_factory=lambda: defaultdict(list))
+
+
+@dataclass
+class ReleaseNotes:
+    versions: dict[str, Version] = field(default_factory=lambda: defaultdict(Version))
+
+
+class NotesBuilder:
+    def __init__(self):
+        self.release_notes = ReleaseNotes()
+
+    def add(self, version: str, note: ReleaseNote):
+        for section, notes in note.data.items():
+            self.release_notes.versions[version].sections[section].append(Note(
+                filename=note.filename, sha=note.sha, note=notes))
 
 
 def iter_parent_child(root: etree.Element) -> Generator[ElementLocation, None, None]:
@@ -54,35 +82,45 @@ class RenoReleaseNotesTreeProcessor(Treeprocessor):
         for version in loader.versions:
             yield version
 
-    def _create_release_notes(self) -> dict[str, list[ReleaseNote]]:
-        release_notes = {}
+    def _create_release_notes(self) -> ReleaseNotes:
+        release_notes = ReleaseNotes()
         with Loader(Config(str(self.repo_root))) as loader:
             for version in self._get_versions(loader):
-                release_notes[version] = list(self._get_notes(loader, version))
+                for note_file in self._get_notes(loader, version):
+                    for section, note in note_file.data.items():
+                        release_notes.versions[version].sections[section].append(Note(
+                            filename=note_file.filename, sha=note_file.sha, note=note))
 
         return release_notes
 
     def format_release_notes(self) -> etree.Element:
-        notes = self._create_release_notes()
-        self.md.reno_release_notes = notes
+        release_notes = self._create_release_notes()
+        self.md.reno_release_notes = release_notes
 
         div = etree.Element("div", {"class": "reno-release-notes"})
         h2 = etree.Element("h2")
         h2.text = self.title
         div.append(h2)
 
-        for version in notes.keys():
+        for version, sections in release_notes.versions.items():
             version_div = etree.Element("div", {"class": "reno-version"})
             version_h3 = etree.Element("h3")
             version_h3.text = version
             version_div.append(version_h3)
 
-            for note in notes[version]:
-                note_div = etree.Element("div", {"class": "reno-note"})
-                note_p = etree.Element("p")
-                note_p.text = f"{note.data.get('bug', [''])[0]}"
-                note_div.append(note_p)
-                version_div.append(note_div)
+            for section, notes in sections.sections.items():
+                section_div = etree.Element("div", {"class": "reno-section"})
+                section_h4 = etree.Element("h4")
+                section_h4.text = section
+                section_div.append(section_h4)
+                version_div.append(section_div)
+
+                for note in notes:
+                    note_div = etree.Element("div", {"class": "reno-note"})
+                    note_p = etree.Element("p")
+                    note_p.text = f"{note.note}"
+                    note_div.append(note_p)
+                    section_div.append(note_div)
 
             div.append(version_div)
 
@@ -95,15 +133,13 @@ class RenoReleaseNotesTreeProcessor(Treeprocessor):
 
         return div
 
-    def run(self, root: etree.Element):
+    def run(self, root: etree.Element) -> None:
         for element in iter_parent_child(root):
-            if element.node.text and element.node.text.strip() == "[release-notes]":
+            if element.node.text and element.node.text.strip() == "[reno-release-notes]":
                 reno_element = self.build_release_notes_element()
 
                 element.parent.remove(element.node)
                 element.parent.insert(element.index, reno_element)
-
-        return None
 
 
 class RenoReleaseNotesExtension(Extension):
