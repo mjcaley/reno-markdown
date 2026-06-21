@@ -1,4 +1,5 @@
 from markdown import Markdown
+
 from reno_markdown.extension import (
     RenoReleaseNotesExtension,
     RenoReleaseNotesTreeProcessor,

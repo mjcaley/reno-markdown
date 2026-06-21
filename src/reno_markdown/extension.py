@@ -1,16 +1,13 @@
+import xml.etree.ElementTree as etree
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-import typing
-import xml.etree.ElementTree as etree
-from markdown import Extension
+from typing import Any, Generator
+
+from markdown import Extension, Markdown
 from markdown.treeprocessors import Treeprocessor
 from reno.config import Config
 from reno.loader import Loader
-
-if typing.TYPE_CHECKING:
-    from markdown import Markdown
-    from typing import Any, Generator
 
 
 @dataclass

@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 from dulwich import porcelain
 
-
 GIT_AUTHOR = "John Smith <jsmith@example.com>".encode()
 
 
