@@ -6,8 +6,8 @@ from typing import Any, Generator
 
 from markdown import Extension, Markdown
 from markdown.treeprocessors import Treeprocessor
-from reno.config import Config
-from reno.loader import Loader
+
+from .repository import Note, RenoRepository, Section
 
 
 @dataclass
@@ -15,41 +15,6 @@ class ElementLocation:
     node: etree.Element
     parent: etree.Element
     index: int
-
-
-@dataclass
-class ReleaseNote:
-    version: str
-    filename: Path
-    sha: str
-    data: dict[str, Any]
-
-
-@dataclass
-class Note:
-    filename: str
-    sha: str
-    note: str
-
-
-@dataclass
-class Version:
-    sections: dict[str, list[Note]] = field(default_factory=lambda: defaultdict(list))
-
-
-@dataclass
-class ReleaseNotes:
-    versions: dict[str, Version] = field(default_factory=lambda: defaultdict(Version))
-
-
-class NotesBuilder:
-    def __init__(self):
-        self.release_notes = ReleaseNotes()
-
-    def add(self, version: str, note: ReleaseNote):
-        for section, notes in note.data.items():
-            self.release_notes.versions[version].sections[section].append(Note(
-                filename=note.filename, sha=note.sha, note=notes))
 
 
 def iter_parent_child(root: etree.Element) -> Generator[ElementLocation, None, None]:
@@ -66,60 +31,52 @@ class RenoReleaseNotesTreeProcessor(Treeprocessor):
         repo_root = config.get("repo_root") or "."
         self.repo_root = Path(repo_root)
 
-    def _get_notes(self, loader: Loader, version: str) -> Generator[ReleaseNote, None, None]:
-        for filename, sha in loader[version]:
-            yield ReleaseNote(
-                version=version,
-                filename=Path(filename),
-                sha=sha,
-                data=loader.parse_note_file(filename, sha),
-            )
+    @staticmethod
+    def append_note_element(parent: etree.Element, note: Note):
+        note_div = etree.Element(
+            "div",
+            {
+                "class": "reno-note",
+                "data-reno-filename": note.filename,
+                "data-reno-sha": note.sha.decode()
+            }
+        )
+        note_p = etree.Element("p")
+        note_p.text = f"{note.note}"
+        note_div.append(note_p)
+        parent.append(note_div)
 
-    def _get_versions(self, loader: Loader) -> Generator[str, None, None]:
-        for version in loader.versions:
-            yield version
+    @staticmethod
+    def append_section_element(parent: etree.Element, section: Section, notes: list[Note]):
+        section_div = etree.Element("div", {"class": "reno-section"})
+        section_h4 = etree.Element("h4")
+        section_h4.text = section
+        section_div.append(section_h4)
+        parent.append(section_div)
 
-    def _create_release_notes(self) -> ReleaseNotes:
-        release_notes = ReleaseNotes()
-        with Loader(Config(str(self.repo_root))) as loader:
-            for version in self._get_versions(loader):
-                for note_file in self._get_notes(loader, version):
-                    for section, note in note_file.data.items():
-                        release_notes.versions[version].sections[section].append(Note(
-                            filename=note_file.filename, sha=note_file.sha, note=note))
+        for note in notes:
+            RenoReleaseNotesTreeProcessor.append_note_element(section_div, note)
 
-        return release_notes
+    @staticmethod
+    def append_version_element(parent: etree.Element, reno_repository: RenoRepository, version: str):
+        version_div = etree.Element("div", {"class": "reno-version"})
+        version_h3 = etree.Element("h3")
+        version_h3.text = version
+        version_div.append(version_h3)
+        parent.append(version_div)
+
+        for section, notes in reno_repository.sections(version):
+            RenoReleaseNotesTreeProcessor.append_section_element(version_div, section, notes)
 
     def format_release_notes(self) -> etree.Element:
-        release_notes = self._create_release_notes()
-        self.md.reno_release_notes = release_notes
-
         div = etree.Element("div", {"class": "reno-release-notes"})
         h2 = etree.Element("h2")
         h2.text = self.title
         div.append(h2)
 
-        for version, sections in release_notes.versions.items():
-            version_div = etree.Element("div", {"class": "reno-version"})
-            version_h3 = etree.Element("h3")
-            version_h3.text = version
-            version_div.append(version_h3)
-
-            for section, notes in sections.sections.items():
-                section_div = etree.Element("div", {"class": "reno-section"})
-                section_h4 = etree.Element("h4")
-                section_h4.text = section
-                section_div.append(section_h4)
-                version_div.append(section_div)
-
-                for note in notes:
-                    note_div = etree.Element("div", {"class": "reno-note"})
-                    note_p = etree.Element("p")
-                    note_p.text = f"{note.note}"
-                    note_div.append(note_p)
-                    section_div.append(note_div)
-
-            div.append(version_div)
+        reno_repository = RenoRepository(self.repo_root)
+        for version in reno_repository.versions():
+            self.append_version_element(div, reno_repository, version)
 
         return div
 
