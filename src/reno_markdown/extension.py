@@ -1,26 +1,12 @@
 import xml.etree.ElementTree as etree
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 from markdown import Extension, Markdown
 from markdown.blockparser import BlockParser
 from markdown.blockprocessors import BlockProcessor
 
 from .repository import Note, RenoVersion, Section, open_reno_repository
-
-
-@dataclass
-class ElementLocation:
-    node: etree.Element
-    parent: etree.Element
-    index: int
-
-
-def iter_parent_child(root: etree.Element) -> Generator[ElementLocation, None, None]:
-    for index, child in enumerate(root):
-        yield from iter_parent_child(child)
-        yield ElementLocation(node=child, parent=root, index=index)
 
 
 class RenoReleaseNotesBlockProcessor(BlockProcessor):
