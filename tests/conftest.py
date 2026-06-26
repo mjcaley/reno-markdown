@@ -20,12 +20,12 @@ def mock_repo(tmp_path):
 
     notes_dir = repo_dir / "releasenotes" / "notes"
     notes_dir.mkdir(parents=True)
-    bug_note = notes_dir / "bug-82e2c49428491510.yaml"
+    bug_note = notes_dir / "fixes-82e2c49428491510.yaml"
     bug_note.write_text("""---
-bug:
+fixes:
 - A mock bug fix.""")
     porcelain.add(repo_dir, bug_note)
-    porcelain.commit(repo_dir, "Add note for bug fix", GIT_AUTHOR)
+    porcelain.commit(repo_dir, "Add note for bug fix", GIT_AUTHOR, sign=False)
     porcelain.tag_create(repo_dir, "v1.0.0")
 
     yield MockRepo(root=repo_dir, notes=[bug_note.relative_to(repo_dir)])
