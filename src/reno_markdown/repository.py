@@ -1,4 +1,5 @@
 from collections import defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -6,14 +7,6 @@ from typing import Generator, Protocol
 
 from reno.config import Config
 from reno.loader import Loader
-
-
-class RenoRepositoryProtocol(Protocol):
-    def versions(self) -> Generator[str, None, None]:
-        ...
-
-    def sections(self, version: str) -> Generator["Section", None, None]:
-        ...
 
 
 class Section(StrEnum):
@@ -38,26 +31,46 @@ class Note:
         return self.note
 
 
-class RenoRepository:
-    def __init__(self, repo_root: Path):
-        self.config = Config(str(repo_root))
+@dataclass(frozen=True)
+class RenoSection:
+    section: Section
+    notes: list[Note]
 
-    def versions(self) -> Generator[str, None, None]:
-        with Loader(self.config) as loader:
-            yield from loader.versions
 
-    def sections(self, version: str) -> Generator[tuple[Section, list[Note]], None, None]:
+class RenoVersion:
+    def __init__(self, loader: Loader, version: str):
+        self._loader = loader
+        self._version = version
+
+    def sections(self) -> Generator[RenoSection, None, None]:
         version_notes: dict[Section, list[Note]] = defaultdict(list)
 
-        with Loader(self.config) as loader:
-            for filename, sha in loader[version]:
-                for section, notes in loader.parse_note_file(filename, sha).items():
-                    if isinstance(notes, list):
-                        for note in notes:
-                            # breakpoint()
-                            version_notes[Section(section)].append(Note(sha=sha, filename=filename, note=note))
-                    else:
-                        version_notes[Section(section)].append(Note(sha=sha, filename=filename, note=notes))
+        for filename, sha in self._loader[self._version]:
+            for section, notes in self._loader.parse_note_file(filename, sha).items():
+                if isinstance(notes, list):
+                    for note in notes:
+                        version_notes[Section(section)].append(Note(sha=sha.decode(), filename=filename, note=note))
+                else:
+                    version_notes[Section(section)].append(Note(sha=sha.decode(), filename=filename, note=notes))
 
         for section, notes in version_notes.items():
-            yield section, notes
+            yield RenoSection(section, notes)
+
+    @property
+    def version(self) -> str:
+        return self._version
+
+
+class RenoRepository:
+    def __init__(self, loader: Loader):
+        self._loader = loader
+
+    def versions(self) -> Generator[RenoVersion, None, None]:
+        for version in self._loader.versions:
+            yield RenoVersion(self._loader, version)
+
+
+@contextmanager
+def open_reno_repository(repo_root: Path) -> Generator[RenoRepository, None, None]:
+    with Loader(Config(str(repo_root))) as loader:
+        yield RenoRepository(loader)
