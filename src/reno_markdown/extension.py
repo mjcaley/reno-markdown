@@ -34,18 +34,16 @@ class RenoReleaseNotesBlockProcessor(BlockProcessor):
 
     @staticmethod
     def append_note_element(parent: etree.Element, note: Note):
-        note_div = etree.Element(
-            "div",
+        note_p = etree.Element(
+            "p",
             {
                 "class": "reno-note",
                 "data-reno-filename": note.filename,
                 "data-reno-sha": note.sha.decode()
             }
         )
-        note_p = etree.Element("p")
-        note_p.text = f"{note.note}"
-        note_div.append(note_p)
-        parent.append(note_div)
+        note_p.text = note.note
+        parent.append(note_p)
 
     @staticmethod
     def append_section_element(parent: etree.Element, section: Section, notes: list[Note]):
