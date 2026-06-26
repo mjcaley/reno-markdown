@@ -5,7 +5,8 @@ from pathlib import Path
 from typing import Any, Generator
 
 from markdown import Extension, Markdown
-from markdown.treeprocessors import Treeprocessor
+from markdown.blockparser import BlockParser
+from markdown.blockprocessors import BlockProcessor
 
 from .repository import Note, RenoRepository, Section
 
@@ -23,8 +24,8 @@ def iter_parent_child(root: etree.Element) -> Generator[ElementLocation, None, N
         yield ElementLocation(node=child, parent=root, index=index)
 
 
-class RenoReleaseNotesTreeProcessor(Treeprocessor):
-    def __init__(self, md: Markdown, config: dict[str, Any]):
+class RenoReleaseNotesBlockProcessor(BlockProcessor):
+    def __init__(self, md: BlockParser, config: dict[str, Any]):
         super().__init__(md)
 
         self.title: str = config.get("title", "Release Notes")
@@ -55,7 +56,7 @@ class RenoReleaseNotesTreeProcessor(Treeprocessor):
         parent.append(section_div)
 
         for note in notes:
-            RenoReleaseNotesTreeProcessor.append_note_element(section_div, note)
+            RenoReleaseNotesBlockProcessor.append_note_element(section_div, note)
 
     @staticmethod
     def append_version_element(parent: etree.Element, reno_repository: RenoRepository, version: str):
@@ -66,9 +67,9 @@ class RenoReleaseNotesTreeProcessor(Treeprocessor):
         parent.append(version_div)
 
         for section, notes in reno_repository.sections(version):
-            RenoReleaseNotesTreeProcessor.append_section_element(version_div, section, notes)
+            RenoReleaseNotesBlockProcessor.append_section_element(version_div, section, notes)
 
-    def format_release_notes(self) -> etree.Element:
+    def build_release_notes_element(self) -> etree.Element:
         div = etree.Element("div", {"class": "reno-release-notes"})
         h2 = etree.Element("h2")
         h2.text = self.title
@@ -80,20 +81,15 @@ class RenoReleaseNotesTreeProcessor(Treeprocessor):
 
         return div
 
-    def build_release_notes_element(self) -> etree.Element:
-        div = etree.Element("div", {"class": "reno-release-notes"})
-        notes = self.format_release_notes()
-        div.append(notes)
+    def test(self, parent: etree.Element, block: str) -> bool:
+        return block.strip().startswith("::: reno-release-notes") or block.strip().startswith(":::reno-release-notes")
 
-        return div
+    def run(self, parent: etree.Element, blocks: list[str]) -> bool:
+        reno_element = self.build_release_notes_element()
+        parent.append(reno_element)
+        blocks.pop(0)
 
-    def run(self, root: etree.Element) -> None:
-        for element in iter_parent_child(root):
-            if element.node.text and element.node.text.strip() == "[reno-release-notes]":
-                reno_element = self.build_release_notes_element()
-
-                element.parent.remove(element.node)
-                element.parent.insert(element.index, reno_element)
+        return True
 
 
 class RenoReleaseNotesExtension(Extension):
@@ -105,8 +101,8 @@ class RenoReleaseNotesExtension(Extension):
         super().__init__(**kwargs)
 
     def extendMarkdown(self, md: Markdown):
-        md.treeprocessors.register(
-            RenoReleaseNotesTreeProcessor(md, self.getConfigs()),
+        md.parser.blockprocessors.register(
+            RenoReleaseNotesBlockProcessor(md.parser, self.getConfigs()),
             "reno_release_notes",
-            15,
+            175,
         )

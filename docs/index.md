@@ -1,4 +1,5 @@
-[reno-release-notes]
+::: reno-release-notes
+:::
 
 
 should be a version note here
