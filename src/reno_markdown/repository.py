@@ -8,6 +8,15 @@ from reno.config import Config
 from reno.loader import Loader
 
 
+class RenoRepositoryConfig:
+    def __init__(self, repo_root: Path, release_notes_dir: str | None = None):
+        self.reno_config = Config(str(repo_root), release_notes_dir)
+
+    @property
+    def prelude_name(self) -> str:
+        return self.reno_config.prelude_section_name
+
+
 @dataclass(frozen=True)
 class Note:
     sha: str
@@ -77,15 +86,6 @@ class RenoRepository:
     def versions(self) -> Generator[RenoVersion, None, None]:
         for version in self._loader.versions:
             yield RenoVersion(self._loader, self._config, version)
-
-
-class RenoRepositoryConfig:
-    def __init__(self, repo_root: Path, release_notes_dir: str | None = None):
-        self.reno_config = Config(str(repo_root), release_notes_dir)
-
-    @property
-    def prelude_name(self) -> str:
-        return self.reno_config.prelude_section_name
 
 
 @contextmanager
