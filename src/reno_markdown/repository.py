@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Generator, Protocol
+from typing import Generator
 
 from reno.config import Config
 from reno.loader import Loader
@@ -71,6 +71,6 @@ class RenoRepository:
 
 
 @contextmanager
-def open_reno_repository(repo_root: Path) -> Generator[RenoRepository, None, None]:
-    with Loader(Config(str(repo_root))) as loader:
+def open_reno_repository(repo_root: Path, release_notes_dir: str | None = None) -> Generator[RenoRepository, None, None]:
+    with Loader(Config(str(repo_root), release_notes_dir)) as loader:
         yield RenoRepository(loader)

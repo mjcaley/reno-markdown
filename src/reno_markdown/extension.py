@@ -16,6 +16,7 @@ class RenoReleaseNotesBlockProcessor(BlockProcessor):
         self.title: str = config.get("title", "Release Notes")
         repo_root = config.get("repo_root") or "."
         self.repo_root = Path(repo_root)
+        self.release_notes_dir: str | None = config.get("release_notes_dir")
 
     @staticmethod
     def append_note_element(parent: etree.Element, note: Note):
@@ -58,7 +59,7 @@ class RenoReleaseNotesBlockProcessor(BlockProcessor):
         h2.text = self.title
         div.append(h2)
 
-        with open_reno_repository(self.repo_root) as reno_repository:
+        with open_reno_repository(self.repo_root, self.release_notes_dir) as reno_repository:
             for version in reno_repository.versions():
                 self.append_version_element(div, version)
 
@@ -79,6 +80,7 @@ class RenoReleaseNotesExtension(Extension):
     def __init__(self, **kwargs):
         self.config = {
             "repo_root": [".", "Path to the root of the repository"],
+            "release_notes_dir": [None, "Directory name of the release notes directory"],
             "title": ["Release Notes", "Title for the release notes section"],
         }
         super().__init__(**kwargs)

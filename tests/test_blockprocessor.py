@@ -10,7 +10,7 @@ def test_replace_marker(mock_repo):
     test_input = """:::reno-release-notes\n:::\n"""
 
     md = Markdown(
-        extensions=[RenoReleaseNotesExtension(repo_root=str(mock_repo.root))],
+        extensions=[RenoReleaseNotesExtension(repo_root=mock_repo.root)],
     )
     result = md.convert(test_input)
 
