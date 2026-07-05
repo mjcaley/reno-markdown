@@ -6,7 +6,7 @@ from markdown import Extension, Markdown
 from markdown.blockparser import BlockParser
 from markdown.blockprocessors import BlockProcessor
 
-from .repository import Note, RenoSectionPrelude, RenoVersion, open_reno_repository
+from .repository import Note, RenoVersion, open_reno_repository
 
 
 class RenoReleaseNotesBlockProcessor(BlockProcessor):
@@ -32,6 +32,14 @@ class RenoReleaseNotesBlockProcessor(BlockProcessor):
         parent.append(note_p)
 
     @staticmethod
+    def append_prelude_element(parent: etree.Element, notes: list[Note]):
+        prelude_div = etree.Element("div", {"class": "reno-prelude"})
+        parent.append(prelude_div)
+
+        for note in notes:
+            RenoReleaseNotesBlockProcessor.append_note_element(prelude_div, note)
+
+    @staticmethod
     def append_section_element(parent: etree.Element, section: str, notes: list[Note]):
         section_div = etree.Element("div", {"class": "reno-section"})
         section_h4 = etree.Element("h4")
@@ -51,10 +59,10 @@ class RenoReleaseNotesBlockProcessor(BlockProcessor):
         parent.append(version_div)
 
         for reno_section in reno_version.sections():
-            if isinstance(reno_section, RenoSectionPrelude):
-                RenoReleaseNotesBlockProcessor.append_section_element(version_div, "Prelude", reno_section.notes)    # TODO: Replace prelude text with configured name
+            if reno_section.is_prelude:
+                RenoReleaseNotesBlockProcessor.append_prelude_element(version_div, reno_section.notes)
             else:
-                RenoReleaseNotesBlockProcessor.append_section_element(version_div, reno_section.section, reno_section.notes)    # TODO: Replace titles with configured names
+                RenoReleaseNotesBlockProcessor.append_section_element(version_div, reno_section.title or reno_section.name, reno_section.notes)
 
     def build_release_notes_element(self) -> etree.Element:
         div = etree.Element("div", {"class": "reno-release-notes"})

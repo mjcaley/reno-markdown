@@ -1,6 +1,6 @@
 from collections import defaultdict
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Generator
 
@@ -16,6 +16,14 @@ class RenoRepositoryConfig:
     def prelude_name(self) -> str:
         return self.reno_config.prelude_section_name
 
+    def sections(self) -> list[str]:
+        return [self.prelude_name] + [section.name for section in self.reno_config.sections]
+
+    def section_title(self, section: str) -> str | None:
+        for s in self.reno_config.sections:
+            if s.name == section:
+                return s.title
+
 
 @dataclass(frozen=True)
 class Note:
@@ -28,46 +36,41 @@ class Note:
 
 
 @dataclass(frozen=True)
-class RenoSectionPrelude:
-    notes: list[Note]
-
-
-@dataclass(frozen=True)
 class RenoSection:
-    section: str
-    notes: list[Note]
+    name: str
+    title: str | None
+    level: int = 1
+    notes: list[Note] = field(default_factory=list)
+    is_prelude: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.name)
 
 
 class RenoVersion:
     def __init__(self, loader: Loader, config: RenoRepositoryConfig, version: str):
         self._loader = loader
-        self._config = config
+        self.config = config
         self._version = version
 
     def sections(self) -> Generator[RenoSection, None, None]:
-        prelude_notes: list[Note] = []
-        version_notes: dict[str, list[Note]] = defaultdict(list)
+        version_notes = {section: [] for section in self.config.sections()}
 
         for filename, sha in self._loader[self._version]:
             for section, notes in self._loader.parse_note_file(filename, sha).items():
                 if isinstance(notes, list):
                     for note in notes:
                         note_data = Note(sha=sha.decode(), filename=filename, note=note)
-                        if section == self._config.prelude_name:
-                            prelude_notes.append(note_data)
-                        else:
-                            version_notes[section].append(note_data)
+                        version_notes[section].append(note_data)
                 else:
                     note_data = Note(sha=sha.decode(), filename=filename, note=notes)
-                    if section == self._config.prelude_name:
-                        prelude_notes.append(note_data)
-                    else:
-                        version_notes[section].append(note_data)
+                    version_notes[section].append(note_data)
 
-        if prelude_notes:
-            yield RenoSectionPrelude(prelude_notes)
+        if version_notes[self.config.prelude_name]:
+            yield RenoSection(self.config.prelude_name, None, notes=version_notes[self.config.prelude_name], is_prelude=True)
         for section, notes in version_notes.items():
-            yield RenoSection(section, notes)
+            if section != self.config.prelude_name:
+                yield RenoSection(section, self.config.section_title(section), notes=notes)
 
     @property
     def version(self) -> str:
@@ -77,15 +80,11 @@ class RenoVersion:
 class RenoRepository:
     def __init__(self, loader: Loader, config: RenoRepositoryConfig):
         self._loader = loader
-        self._config = config
-
-    def sections(self) -> Generator[str, None, None]:
-        for section in self._loader.sections:
-            yield section
+        self.config = config
 
     def versions(self) -> Generator[RenoVersion, None, None]:
         for version in self._loader.versions:
-            yield RenoVersion(self._loader, self._config, version)
+            yield RenoVersion(self._loader, self.config, version)
 
 
 @contextmanager
