@@ -32,6 +32,19 @@ class RenoConfigurationProtocol(Protocol):
     def sections(self) -> Sequence[SectionProtocol]: ...
 
 
+class RenoConfigurationAdapter:
+    def __init__(self, config: Config):
+        self.reno_config = config
+
+    @property
+    def prelude_section_name(self) -> str:
+        return self.reno_config.prelude_section_name
+    
+    @property
+    def sections(self) -> Sequence[SectionProtocol]:
+        return self.reno_config.sections
+
+
 def all_sections(config: RenoConfigurationProtocol) -> list[str]:
     return [config.prelude_section_name] + [section.name for section in config.sections]
 
@@ -120,6 +133,7 @@ class RenoRepository:
 def open_reno_repository(
     repo_root: Path, release_notes_dir: str | None = None
 ) -> Generator[RenoRepository, None, None]:
-    config = Config(str(repo_root), release_notes_dir)
-    with Loader(config) as loader:
-        yield RenoRepository(loader, config)
+    reno_config = Config(str(repo_root), release_notes_dir)
+    with Loader(reno_config) as loader:
+        config_adaptor = RenoConfigurationAdapter(reno_config)
+        yield RenoRepository(loader, config_adaptor)
