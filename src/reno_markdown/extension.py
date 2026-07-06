@@ -6,7 +6,7 @@ from markdown import Extension, Markdown
 from markdown.blockparser import BlockParser
 from markdown.blockprocessors import BlockProcessor
 
-from .repository import Note, RenoVersion, open_reno_repository
+from .repository import Note, RenoSection, RenoVersion, open_reno_repository
 
 
 class RenoReleaseNotesBlockProcessor(BlockProcessor):
@@ -40,14 +40,22 @@ class RenoReleaseNotesBlockProcessor(BlockProcessor):
             RenoReleaseNotesBlockProcessor.append_note_element(prelude_div, note)
 
     @staticmethod
-    def append_section_element(parent: etree.Element, section: str, notes: list[Note]):
+    def append_section_element(parent: etree.Element, section: RenoSection):
         section_div = etree.Element("div", {"class": "reno-section"})
-        section_h4 = etree.Element("h4")
-        section_h4.text = section
-        section_div.append(section_h4)
+        match section.level:
+            case 1:
+                section_h = etree.Element("h4")
+            case 2:
+                section_h = etree.Element("h5")
+            case 3:
+                section_h = etree.Element("h6")
+            case _:
+                raise ValueError(f"Unsupported section level: {section.level}")
+        section_h.text = section.title or section.name
+        section_div.append(section_h)
         parent.append(section_div)
 
-        for note in notes:
+        for note in section.notes:
             RenoReleaseNotesBlockProcessor.append_note_element(section_div, note)
 
     @staticmethod
@@ -66,8 +74,7 @@ class RenoReleaseNotesBlockProcessor(BlockProcessor):
             else:
                 RenoReleaseNotesBlockProcessor.append_section_element(
                     version_div,
-                    reno_section.title or reno_section.name,
-                    reno_section.notes,
+                    reno_section,
                 )
 
     def build_release_notes_element(self) -> etree.Element:
