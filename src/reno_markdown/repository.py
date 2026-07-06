@@ -87,9 +87,13 @@ class RenoVersion:
 
         for filename, sha in self._loader[self._version]:
             for section, notes in self._loader.parse_note_file(filename, sha).items():
-                for note in notes:
-                    note_data = Note(sha=sha.decode(), filename=filename, note=note)
+                if section == self.config.prelude_section_name:
+                    note_data = Note(sha=sha.decode(), filename=filename, note=notes)
                     version_notes[section].append(note_data)
+                else:
+                    for note in notes:
+                        note_data = Note(sha=sha.decode(), filename=filename, note=note)
+                        version_notes[section].append(note_data)
         if version_notes[self.config.prelude_section_name]:
             yield RenoSection(
                 self.config.prelude_section_name,
