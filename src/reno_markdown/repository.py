@@ -1,28 +1,45 @@
-from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Protocol, Sequence
 
 from reno.config import Config
 from reno.loader import Loader
 
 
-class RenoRepositoryConfig:
-    def __init__(self, repo_root: Path, release_notes_dir: str | None = None):
-        self.reno_config = Config(str(repo_root), release_notes_dir)
+class RenoLoaderProtocol(Protocol):
+    def __getitem__(self, version: str) -> list[tuple[str, bytes]]: ...
+
+    def parse_note_file(self, filename: str, sha: bytes) -> dict[str, list[str]]: ...
 
     @property
-    def prelude_name(self) -> str:
-        return self.reno_config.prelude_section_name
+    def versions(self) -> list[str]: ...
 
-    def sections(self) -> list[str]:
-        return [self.prelude_name] + [section.name for section in self.reno_config.sections]
 
-    def section_title(self, section: str) -> str | None:
-        for s in self.reno_config.sections:
-            if s.name == section:
-                return s.title
+class SectionProtocol(Protocol):
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def title(self) -> str | None: ...
+
+
+class RenoConfigurationProtocol(Protocol):
+    @property
+    def prelude_section_name(self) -> str: ...
+
+    @property
+    def sections(self) -> Sequence[SectionProtocol]: ...
+
+
+def all_sections(config: RenoConfigurationProtocol) -> list[str]:
+    return [config.prelude_section_name] + [section.name for section in config.sections]
+
+
+def section_title(config: RenoConfigurationProtocol, section: str) -> str | None:
+    for s in config.sections:
+        if s.name == section:
+            return s.title
 
 
 @dataclass(frozen=True)
@@ -48,13 +65,18 @@ class RenoSection:
 
 
 class RenoVersion:
-    def __init__(self, loader: Loader, config: RenoRepositoryConfig, version: str):
+    def __init__(
+        self,
+        loader: RenoLoaderProtocol,
+        config: RenoConfigurationProtocol,
+        version: str,
+    ):
         self._loader = loader
         self.config = config
         self._version = version
 
     def sections(self) -> Generator[RenoSection, None, None]:
-        version_notes = {section: [] for section in self.config.sections()}
+        version_notes = {section: [] for section in all_sections(self.config)}
 
         for filename, sha in self._loader[self._version]:
             for section, notes in self._loader.parse_note_file(filename, sha).items():
@@ -66,11 +88,18 @@ class RenoVersion:
                     note_data = Note(sha=sha.decode(), filename=filename, note=notes)
                     version_notes[section].append(note_data)
 
-        if version_notes[self.config.prelude_name]:
-            yield RenoSection(self.config.prelude_name, None, notes=version_notes[self.config.prelude_name], is_prelude=True)
+        if version_notes[self.config.prelude_section_name]:
+            yield RenoSection(
+                self.config.prelude_section_name,
+                None,
+                notes=version_notes[self.config.prelude_section_name],
+                is_prelude=True,
+            )
         for section, notes in version_notes.items():
-            if section != self.config.prelude_name:
-                yield RenoSection(section, self.config.section_title(section), notes=notes)
+            if section != self.config.prelude_section_name:
+                yield RenoSection(
+                    section, section_title(self.config, section), notes=notes
+                )
 
     @property
     def version(self) -> str:
@@ -78,7 +107,7 @@ class RenoVersion:
 
 
 class RenoRepository:
-    def __init__(self, loader: Loader, config: RenoRepositoryConfig):
+    def __init__(self, loader: RenoLoaderProtocol, config: RenoConfigurationProtocol):
         self._loader = loader
         self.config = config
 
@@ -88,7 +117,9 @@ class RenoRepository:
 
 
 @contextmanager
-def open_reno_repository(repo_root: Path, release_notes_dir: str | None = None) -> Generator[RenoRepository, None, None]:
-    config = RenoRepositoryConfig(repo_root, release_notes_dir)
-    with Loader(config.reno_config) as loader:
+def open_reno_repository(
+    repo_root: Path, release_notes_dir: str | None = None
+) -> Generator[RenoRepository, None, None]:
+    config = Config(str(repo_root), release_notes_dir)
+    with Loader(config) as loader:
         yield RenoRepository(loader, config)

@@ -25,8 +25,8 @@ class RenoReleaseNotesBlockProcessor(BlockProcessor):
             {
                 "class": "reno-note",
                 "data-reno-filename": note.filename,
-                "data-reno-sha": note.sha
-            }
+                "data-reno-sha": note.sha,
+            },
         )
         note_p.text = note.note
         parent.append(note_p)
@@ -60,9 +60,15 @@ class RenoReleaseNotesBlockProcessor(BlockProcessor):
 
         for reno_section in reno_version.sections():
             if reno_section.is_prelude:
-                RenoReleaseNotesBlockProcessor.append_prelude_element(version_div, reno_section.notes)
+                RenoReleaseNotesBlockProcessor.append_prelude_element(
+                    version_div, reno_section.notes
+                )
             else:
-                RenoReleaseNotesBlockProcessor.append_section_element(version_div, reno_section.title or reno_section.name, reno_section.notes)
+                RenoReleaseNotesBlockProcessor.append_section_element(
+                    version_div,
+                    reno_section.title or reno_section.name,
+                    reno_section.notes,
+                )
 
     def build_release_notes_element(self) -> etree.Element:
         div = etree.Element("div", {"class": "reno-release-notes"})
@@ -70,14 +76,18 @@ class RenoReleaseNotesBlockProcessor(BlockProcessor):
         h2.text = self.title
         div.append(h2)
 
-        with open_reno_repository(self.repo_root, self.release_notes_dir) as reno_repository:
+        with open_reno_repository(
+            self.repo_root, self.release_notes_dir
+        ) as reno_repository:
             for version in reno_repository.versions():
                 self.append_version_element(div, version)
 
         return div
 
     def test(self, parent: etree.Element, block: str) -> bool:
-        return block.strip().startswith("::: reno-release-notes") or block.strip().startswith(":::reno-release-notes")
+        return block.strip().startswith(
+            "::: reno-release-notes"
+        ) or block.strip().startswith(":::reno-release-notes")
 
     def run(self, parent: etree.Element, blocks: list[str]) -> bool:
         reno_element = self.build_release_notes_element()
@@ -91,7 +101,10 @@ class RenoReleaseNotesExtension(Extension):
     def __init__(self, **kwargs):
         self.config = {
             "repo_root": [".", "Path to the root of the repository"],
-            "release_notes_dir": [None, "Directory name of the release notes directory"],
+            "release_notes_dir": [
+                None,
+                "Directory name of the release notes directory",
+            ],
             "title": ["Release Notes", "Title for the release notes section"],
         }
         super().__init__(**kwargs)

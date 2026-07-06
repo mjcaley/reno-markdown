@@ -1,9 +1,6 @@
 from markdown import Markdown
 
-from reno_markdown.extension import (
-    RenoReleaseNotesExtension,
-    RenoReleaseNotesBlockProcessor,
-)
+from reno_markdown.extension import RenoReleaseNotesExtension
 
 
 def test_replace_marker(mock_repo):
