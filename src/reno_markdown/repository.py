@@ -61,9 +61,6 @@ class Note:
     filename: str
     note: str
 
-    def __str__(self) -> str:
-        return self.note
-
 
 @dataclass(frozen=True)
 class RenoSection:
@@ -72,9 +69,6 @@ class RenoSection:
     level: int = 1
     notes: list[Note] = field(default_factory=list)
     is_prelude: bool = False
-
-    def __hash__(self) -> int:
-        return hash(self.name)
 
 
 class RenoVersion:
@@ -93,14 +87,9 @@ class RenoVersion:
 
         for filename, sha in self._loader[self._version]:
             for section, notes in self._loader.parse_note_file(filename, sha).items():
-                if isinstance(notes, list):
-                    for note in notes:
-                        note_data = Note(sha=sha.decode(), filename=filename, note=note)
-                        version_notes[section].append(note_data)
-                else:
-                    note_data = Note(sha=sha.decode(), filename=filename, note=notes)
+                for note in notes:
+                    note_data = Note(sha=sha.decode(), filename=filename, note=note)
                     version_notes[section].append(note_data)
-
         if version_notes[self.config.prelude_section_name]:
             yield RenoSection(
                 self.config.prelude_section_name,
