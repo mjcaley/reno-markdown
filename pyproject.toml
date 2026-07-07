@@ -19,6 +19,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "dulwich>=1.2.6",
+    "mkdocstrings-python>=2.0.5",
     "pytest>=9.1.0",
     "pytest-cov>=7.1.0",
     "reno>=4.1.0",

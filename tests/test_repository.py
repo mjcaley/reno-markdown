@@ -16,7 +16,7 @@ def test_version_yields_section():
 
         def parse_note_file(self, filename, sha):
             return {"singlenote": ["note0"], "multinote": ["note1", "note2"]}
-        
+
         @property
         def versions(self):
             return ["v1.0.0"]
@@ -54,7 +54,7 @@ def test_version_with_prelude():
 
         def parse_note_file(self, filename, sha):
             return {"prelude": ["note0"], "singlenote": ["note0"]}
-        
+
         @property
         def versions(self):
             return ["v1.0.0"]
