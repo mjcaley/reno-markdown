@@ -53,7 +53,7 @@ def test_version_with_prelude():
             return [("file1", b"sha1")]
 
         def parse_note_file(self, filename, sha):
-            return {"prelude": ["note0"], "singlenote": ["note0"]}
+            return {"prelude": "note0", "singlenote": ["note0"]}
 
         @property
         def versions(self):
